@@ -339,6 +339,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 1995477737}
+  wanderDistance: 20
+  wanderRadius: 10
+  wanderJitter: 1.5
 --- !u!1 &990943971
 GameObject:
   m_ObjectHideFlags: 0
