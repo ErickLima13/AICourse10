@@ -3,7 +3,7 @@ using UnityEngine.AI;
 
 public class Bot : MonoBehaviour
 {
-    private NavMeshAgent Agent;
+    private NavMeshAgent agent;
     private Drive targetDrive;
 
     private Vector3 wanderTarget = Vector3.zero;
@@ -18,7 +18,7 @@ public class Bot : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Agent = GetComponent<NavMeshAgent>();
+        agent = GetComponent<NavMeshAgent>();
         targetDrive = target.GetComponent<Drive>();
     }
 
@@ -27,18 +27,24 @@ public class Bot : MonoBehaviour
     {
         //Pursue();
         //Evade();
-        Wander();
+        //Wander();
+        //Hide();
+
+        if (CanSeeTarget())
+        {
+            CleverHide();
+        }
     }
 
     private void Seek(Vector3 location)
     {
-        Agent.SetDestination(location);
+        agent.SetDestination(location);
     }
 
     private void Flee(Vector3 location)
     {
         Vector3 fleeVector = location - transform.position;
-        Agent.SetDestination(transform.position - fleeVector);
+        agent.SetDestination(transform.position - fleeVector);
     }
 
     private void Pursue()
@@ -53,14 +59,14 @@ public class Bot : MonoBehaviour
             return;
         }
 
-        float lookAhead = targetDir.magnitude / (Agent.speed + targetDrive.currentSpeed);
+        float lookAhead = targetDir.magnitude / (agent.speed + targetDrive.currentSpeed);
         Seek(target.transform.position + target.transform.forward * lookAhead);
     }
 
     private void Evade()
     {
         Vector3 targetDir = target.transform.position - transform.position;
-        float lookAhead = targetDir.magnitude / (Agent.speed + targetDrive.currentSpeed);
+        float lookAhead = targetDir.magnitude / (agent.speed + targetDrive.currentSpeed);
         Flee(target.transform.position + target.transform.forward * lookAhead);
     }
 
@@ -77,8 +83,81 @@ public class Bot : MonoBehaviour
         Debug.DrawLine(transform.position, targetWorld,Color.green);
     }
 
+    private void Hide()
+    {
+        float dist = Mathf.Infinity;
+        Vector3 chosenSpot = Vector3.zero;
+
+        for(int i = 0;i< World.Instance.GetHidingSpots().Length; i++)
+        {
+            Vector3 hideDir = World.Instance.GetHidingSpots()[i].transform.position - target.transform.position;
+            Vector3 hidePos = World.Instance.GetHidingSpots()[i].transform.position + hideDir.normalized * 10;
+
+            if (Vector3.Distance(transform.position, hidePos) < dist)
+            {
+                chosenSpot = hidePos;
+                dist = Vector3.Distance(transform.position, hidePos);
+            }
+        }
+
+        Seek(chosenSpot);
+
+        Debug.DrawLine(transform.position, chosenSpot, Color.green);
+    }
+
+    private void CleverHide()
+    {
+        float dist = Mathf.Infinity;
+        Vector3 chosenSpot = Vector3.zero;
+        Vector3 chosenDir = Vector3.zero;
+        GameObject chosenGO = World.Instance.GetHidingSpots()[0];
+
+        for (int i = 0; i < World.Instance.GetHidingSpots().Length; i++)
+        {
+            Vector3 hideDir = World.Instance.GetHidingSpots()[i].transform.position - target.transform.position;
+            Vector3 hidePos = World.Instance.GetHidingSpots()[i].transform.position + hideDir.normalized * 10;
+
+            if (Vector3.Distance(transform.position, hidePos) < dist)
+            {
+                chosenSpot = hidePos;
+                chosenDir = hideDir;
+                chosenGO = World.Instance.GetHidingSpots()[i];
+                dist = Vector3.Distance(transform.position, hidePos);
+            }
+        }
+
+        Collider hideCol = chosenGO.GetComponent<Collider>();
+        Ray backRay = new(chosenSpot, -chosenDir.normalized);
+        RaycastHit info;
+        float distance = 100.0f;
+        hideCol.Raycast(backRay, out info, distance);
+
+        Vector3 location = info.point + chosenDir.normalized * 2;
+
+        Seek(location);
+
+        Debug.DrawLine(transform.position, location, Color.green);
+    }
+
+    private bool CanSeeTarget()
+    {
+        RaycastHit raycastInfo;
+        Vector3 rayToTarget = target.transform.position - transform.position;
+
+        Debug.DrawRay(transform.position, rayToTarget, Color.red);
+
+        if (Physics.Raycast(transform.position,rayToTarget,out raycastInfo))
+        {
+            if (raycastInfo.transform.gameObject.CompareTag("Player"))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void OnDrawGizmos()
     {
-        Gizmos.DrawWireSphere(targetWorld, wanderRadius);
+        //Gizmos.DrawWireSphere(targetWorld, wanderRadius);
     }
 }
