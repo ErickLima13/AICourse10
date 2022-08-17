@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using TMPro;
 
 public class Bot : MonoBehaviour
 {
@@ -14,6 +15,14 @@ public class Bot : MonoBehaviour
     public float wanderDistance = 10;
     public float wanderRadius = 20;
     public float wanderJitter = 1;
+
+    public bool coolDown;
+
+    public string stateName;
+
+    public TextMeshProUGUI state;
+
+    public GameObject canvas;
 
     // Start is called before the first frame update
     void Start()
@@ -30,10 +39,48 @@ public class Bot : MonoBehaviour
         //Wander();
         //Hide();
 
-        if (CanSeeTarget())
+        canvas.transform.rotation = Quaternion.Euler(transform.rotation.x, -114.317f, transform.rotation.z);
+
+        state.text = stateName;
+
+        if (!coolDown)
         {
-            CleverHide();
+            if (!TargetInRange())
+            {
+                Wander();
+            }
+            else if (CanSeeTarget() && TargetCanSeeMe())
+            {
+                CleverHide();
+                coolDown = true;
+                Invoke("BehaviorCoolDown", 5);
+            }
+            else
+            {
+                Pursue();
+            }
         }
+
+        //if (!coolDown)
+        //{
+        //    float distance = Vector3.Distance(transform.position, target.transform.position);
+
+        //    if (distance > 10)
+        //    {
+        //        Wander();
+        //        coolDown = true;
+        //        Invoke("BehaviorCoolDown", 5);
+        //        print(distance);
+        //    }
+        //    else if (TargetCanSeeMe() && CanSeeTarget())
+        //    {
+        //        CleverHide();
+        //    }
+        //    else
+        //    {
+        //        Pursue();
+        //    }
+        //} 
     }
 
     private void Seek(Vector3 location)
@@ -49,6 +96,8 @@ public class Bot : MonoBehaviour
 
     private void Pursue()
     {
+        stateName = "Pursue";
+
         Vector3 targetDir = target.transform.position - transform.position;
         float relativeHeading = Vector3.Angle(transform.forward, transform.TransformVector(target.transform.forward));
         float toTarget = Vector3.Angle(transform.forward, transform.TransformVector(targetDir));
@@ -61,6 +110,8 @@ public class Bot : MonoBehaviour
 
         float lookAhead = targetDir.magnitude / (agent.speed + targetDrive.currentSpeed);
         Seek(target.transform.position + target.transform.forward * lookAhead);
+
+       
     }
 
     private void Evade()
@@ -72,15 +123,19 @@ public class Bot : MonoBehaviour
 
     private void Wander()
     {
+        stateName = "Wander";
+
         wanderTarget += new Vector3(Random.Range(-1.0f, 1.0f) * wanderJitter,
                             0, Random.Range(-1.0f, 1.0f) * wanderJitter);
-        
+
         wanderTarget.Normalize();
         wanderTarget *= wanderRadius;
         Vector3 targetLocal = wanderTarget + new Vector3(0, 0, wanderDistance);
         targetWorld = transform.InverseTransformVector(targetLocal);
         Seek(targetWorld);
-        Debug.DrawLine(transform.position, targetWorld,Color.green);
+        Debug.DrawLine(transform.position, targetWorld, Color.green);
+
+        
     }
 
     private void Hide()
@@ -88,7 +143,7 @@ public class Bot : MonoBehaviour
         float dist = Mathf.Infinity;
         Vector3 chosenSpot = Vector3.zero;
 
-        for(int i = 0;i< World.Instance.GetHidingSpots().Length; i++)
+        for (int i = 0; i < World.Instance.GetHidingSpots().Length; i++)
         {
             Vector3 hideDir = World.Instance.GetHidingSpots()[i].transform.position - target.transform.position;
             Vector3 hidePos = World.Instance.GetHidingSpots()[i].transform.position + hideDir.normalized * 10;
@@ -107,6 +162,8 @@ public class Bot : MonoBehaviour
 
     private void CleverHide()
     {
+        stateName = "CleverHide";
+
         float dist = Mathf.Infinity;
         Vector3 chosenSpot = Vector3.zero;
         Vector3 chosenDir = Vector3.zero;
@@ -137,6 +194,8 @@ public class Bot : MonoBehaviour
         Seek(location);
 
         Debug.DrawLine(transform.position, location, Color.green);
+
+       
     }
 
     private bool CanSeeTarget()
@@ -146,7 +205,7 @@ public class Bot : MonoBehaviour
 
         Debug.DrawRay(transform.position, rayToTarget, Color.red);
 
-        if (Physics.Raycast(transform.position,rayToTarget,out raycastInfo))
+        if (Physics.Raycast(transform.position, rayToTarget, out raycastInfo))
         {
             if (raycastInfo.transform.gameObject.CompareTag("Player"))
             {
@@ -154,6 +213,34 @@ public class Bot : MonoBehaviour
             }
         }
         return false;
+    }
+
+    private bool TargetCanSeeMe()
+    {
+        Vector3 toAgent = transform.position - target.transform.position;
+        float lookingAngle = Vector3.Angle(target.transform.forward, toAgent);
+
+        if (lookingAngle < 60)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private bool TargetInRange()
+    {
+        float distance = Vector3.Distance(transform.position, target.transform.position);
+        if (distance < 10)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private void BehaviorCoolDown()
+    {
+        coolDown = false;
     }
 
     private void OnDrawGizmos()
